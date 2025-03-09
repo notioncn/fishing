@@ -3,7 +3,7 @@ const config = {
     fishCount: 10,
     netSpeed: 8,
     gameTime: 60, // 游戏时长（秒）
-    baseFishSpeed: 2, // 基础鱼的速度
+    baseFishSpeed: 0.8, // 降低基础鱼的速度
     netSize: 30, // 渔网大小
     netExpandTime: 300, // 渔网展开时间（毫秒）
     netStayTime: 500 // 渔网停留时间（毫秒）
@@ -16,8 +16,7 @@ const scoreElement = document.getElementById('score');
 const timerElement = document.getElementById('timer');
 const startButton = document.getElementById('start-btn');
 const resetButton = document.getElementById('reset-btn');
-const leftButton = document.getElementById('left-btn');
-const rightButton = document.getElementById('right-btn');
+
 
 // 游戏状态
 let isGameRunning = false;
@@ -29,7 +28,7 @@ let gameTimer = null;
 let fishes = [];
 const fishColors = ['#FF4444', '#FFD700', '#00BFFF', '#9932CC'];
 const fishScores = [50, 30, 10, 100]; // 对应不同颜色鱼的分数（红色、黄色、蓝色、紫色宝石鱼）
-const fishSpeeds = [1.8, 1.5, 1.0, 2.0]; // 降低后的速度倍率
+const fishSpeeds = [1.2, 1.0, 0.8, 1.5]; // 降低后的速度倍率
 
 // 渔网的信息
 let net = {
@@ -47,8 +46,19 @@ let net = {
 
 // 设置画布大小
 function resizeCanvas() {
-    canvas.width = document.getElementById('gameContainer').offsetWidth;
-    canvas.height = document.getElementById('gameContainer').offsetHeight;
+    const container = document.getElementById('gameContainer');
+    const pixelRatio = window.devicePixelRatio || 1;
+    
+    // 设置CSS尺寸
+    canvas.style.width = container.offsetWidth + 'px';
+    canvas.style.height = container.offsetHeight + 'px';
+    
+    // 设置实际渲染尺寸
+    canvas.width = container.offsetWidth * pixelRatio;
+    canvas.height = container.offsetHeight * pixelRatio;
+    
+    // 缩放画布上下文
+    ctx.scale(pixelRatio, pixelRatio);
 }
 
 resizeCanvas();
@@ -58,42 +68,26 @@ window.addEventListener('resize', resizeCanvas);
 function createFish() {
     const colorIndex = Math.floor(Math.random() * fishColors.length);
     
-    // 根据鱼的类型调整大小（宝石鱼稍大）
-    let size;
-    if (colorIndex === 3) { // 紫色宝石鱼
-        size = 20 + Math.random() * 10;
-    } else {
-        size = 15 + Math.random() * 10;
-    }
+    // 固定尺寸（紫色宝石鱼25，其他20）
+    let size = colorIndex === 3 ? 25 : 20;
     
-    // 从屏幕边缘生成鱼
-    let x, y, dx, dy;
-    if (Math.random() < 0.5) {
-        // 从左右边缘生成
-        x = Math.random() < 0.5 ? 0 : canvas.width;
-        y = Math.random() * canvas.height;
-        dx = x === 0 ? Math.random() * 2 + 1 : -(Math.random() * 2 + 1);
-        dy = (Math.random() - 0.5) * 2;
-    } else {
-        // 从上下边缘生成
-        x = Math.random() * canvas.width;
-        y = Math.random() < 0.5 ? 0 : canvas.height;
-        dx = (Math.random() - 0.5) * 2;
-        dy = y === 0 ? Math.random() * 2 + 1 : -(Math.random() * 2 + 1);
-    }
-    
-    // 根据鱼的类型设置不同的速度
-    const speedMultiplier = fishSpeeds[colorIndex];
-    
+    // 改进的游动路径算法
+    const angle = Math.random() * Math.PI * 2;
+    const speed = config.baseFishSpeed * (0.8 + Math.random() * 0.4);
+    const dx = Math.cos(angle) * speed;
+    const dy = Math.sin(angle) * speed;
+
     const fish = {
-        x: x,
-        y: y,
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
         dx: dx,
         dy: dy,
         size: size,
         color: fishColors[colorIndex],
         score: fishScores[colorIndex],
-        speedMultiplier: speedMultiplier
+        speedMultiplier: fishSpeeds[colorIndex], // 使用对应的速度倍率
+        turnCounter: 0, // 新增转向计数器
+        turnInterval: 50 + Math.random() * 100 // 转向间隔
     };
     
     fishes.push(fish);
@@ -203,6 +197,11 @@ function gameLoop() {
     drawFish();
     drawNet();
     
+    // 添加碰撞检测
+    if (net.visible) {
+        checkNetHit();
+    }
+    
     requestAnimationFrame(gameLoop);
 }
 
@@ -210,6 +209,8 @@ function gameLoop() {
 function startGame() {
     if (isGameRunning) return;
     
+    // 隐藏游戏规则界面
+    document.getElementById('game-rules').style.display = 'none';
     isGameRunning = true;
     score = 0;
     timeLeft = config.gameTime;
@@ -247,36 +248,18 @@ function startGame() {
 
 // 重置游戏
 function resetGame() {
-    clearInterval(gameTimer);
     isGameRunning = false;
     score = 0;
     timeLeft = config.gameTime;
     scoreElement.textContent = score;
     timerElement.textContent = timeLeft;
     fishes = [];
-    net.visible = false;
-    
-    // 清空画布
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
-
-// 调整发射角度
-function adjustAngle(direction) {
-    if (!isGameRunning) return;
-    
-    const angleChange = 0.1;
-    net.angle += direction * angleChange;
-    
-    // 限制角度范围（上半部分）
-    if (net.angle < -Math.PI) net.angle = -Math.PI;
-    if (net.angle > 0) net.angle = 0;
+    document.getElementById('game-rules').style.display = 'block';
 }
 
 // 事件监听
 startButton.addEventListener('click', startGame);
 resetButton.addEventListener('click', resetGame);
-leftButton.addEventListener('click', () => adjustAngle(-1));
-rightButton.addEventListener('click', () => adjustAngle(1));
 
 // 绑定点击事件
 canvas.addEventListener('click', (e) => {
@@ -292,15 +275,11 @@ canvas.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
     if (!isGameRunning) return;
     
-    if (e.key === 'ArrowLeft') {
-        adjustAngle(-1);
-    } else if (e.key === 'ArrowRight') {
-        adjustAngle(1);
-    } else if (e.key === ' ' || e.key === 'ArrowUp') {
+    if (e.key === ' ' || e.key === 'ArrowUp') {
         // 空格或上箭头发射渔网
         if (!net.visible) {
-            const targetX = canvas.width / 2 + Math.cos(net.angle) * 200;
-            const targetY = (canvas.height - 30) + Math.sin(net.angle) * 200;
+            const targetX = canvas.width / 2;
+            const targetY = 0; // 默认向上发射
             throwNet(targetX, targetY);
         }
     }
@@ -528,7 +507,7 @@ function moveNet() {
                 net.y += (dy2 / dist) * speed;
                 
                 // 逐渐缩小
-                net.size = Math.max(5, net.size - 0.5);
+                net.size = Math.max(5, net.size - 2);
             }
             break;
     }
@@ -541,25 +520,26 @@ function moveNet() {
 
 // 检测渔网命中
 function checkNetHit() {
+    // 移除状态限制，始终检测碰撞
+    const scaledNetSize = net.size * (window.devicePixelRatio || 1);
+    
     for (let i = 0; i < fishes.length; i++) {
         const fish = fishes[i];
-        const distance = Math.hypot(fish.x - net.x, fish.y - net.y);
+        const scaledFishSize = fish.size * (window.devicePixelRatio || 1);
         
-        if (distance < net.size + fish.size/2) {
+        const dx = net.x - fish.x;
+        const dy = net.y - fish.y;
+        const distance = Math.sqrt(dx*dx + dy*dy);
+        
+        if (distance < (scaledNetSize/2 + scaledFishSize/2)) {
             // 命中鱼
             score += fish.score;
             scoreElement.textContent = score;
             
-            // 添加捕获效果
             createCaptureEffect(fish.x, fish.y, fish.color);
-            
-            // 移除被捕获的鱼
             fishes.splice(i, 1);
-            
-            // 生成新鱼
+            i--;
             setTimeout(createFish, 500);
-            
-            // 不中断渔网的移动，允许一网多鱼
         }
     }
 }
