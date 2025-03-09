@@ -29,7 +29,7 @@ let gameTimer = null;
 let fishes = [];
 const fishColors = ['#FF4444', '#FFD700', '#00BFFF', '#9932CC'];
 const fishScores = [50, 30, 10, 100]; // 对应不同颜色鱼的分数（红色、黄色、蓝色、紫色宝石鱼）
-const fishSpeeds = [2.5, 2.0, 1.5, 3.0]; // 对应不同颜色鱼的速度倍率
+const fishSpeeds = [1.8, 1.5, 1.0, 2.0]; // 降低后的速度倍率
 
 // 渔网的信息
 let net = {
@@ -61,9 +61,9 @@ function createFish() {
     // 根据鱼的类型调整大小（宝石鱼稍大）
     let size;
     if (colorIndex === 3) { // 紫色宝石鱼
-        size = 25 + Math.random() * 15;
+        size = 20 + Math.random() * 10;
     } else {
-        size = 20 + Math.random() * 20;
+        size = 15 + Math.random() * 10;
     }
     
     // 从屏幕边缘生成鱼
